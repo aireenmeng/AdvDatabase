@@ -260,7 +260,7 @@
             this.Controls.Add(this.dgvSuppliersList);
             this.Name = "SuppliersUC";
             this.Size = new System.Drawing.Size(920, 708);
-            this.Load += new System.EventHandler(this.Suppliers_Load);
+            this.Load += new System.EventHandler(this.SuppliersUC_Load);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
             this.groupBox1.ResumeLayout(false);

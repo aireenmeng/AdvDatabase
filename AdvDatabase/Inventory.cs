@@ -17,16 +17,27 @@ namespace AdvDatabase
 
         // Tracks the Inventory_ID of the product currently selected in the input panel
         private int selectedInventoryId = 0;
-
-        // Filter property to handle navigation from the Dashboard
         private string activeFilter = "";
+        private DataTable fullInventoryData;
 
         public InventoryUC()
         {
+            // FIX: InitializeComponent() MUST be the first call in the constructor.
             InitializeComponent();
-            // Wire up the critical event for visual alerts
+
+            // 1. Wire up Data Grid Events
             dgvProductInventory.CellFormatting += DgvProductInventory_CellFormatting;
             dgvProductInventory.SelectionChanged += DgvProductInventory_SelectionChanged;
+
+            // 2. Wire up Filter/Search Events
+            cmbFilterStatus.SelectedIndexChanged += CmbFilterStatus_SelectedIndexChanged;
+            btnSearchInventory.Click += btnSearchInventory_Click;
+
+            // 3. Wire up CRUD Events
+            btnAddProduct.Click += btnAddProduct_Click;
+            btnUpdateProduct.Click += btnUpdateProduct_Click;
+            btnDeleteProduct.Click += btnDeleteProduct_Click;
+            btnClearFields.Click += btnClearFields_Click;
         }
 
         // Public method called by HomeForm.NavigateAndFilter
@@ -58,13 +69,6 @@ namespace AdvDatabase
 
         private void LoadLookupData()
         {
-            // Load Suppliers, Categories, and populate Status Filter
-            string supplierQuery = "SELECT Supplier_ID, Name FROM SUPPLIERS ORDER BY Name;";
-            PopulateComboBox(cmbSupplier, supplierQuery, "Name", "Supplier_ID");
-
-            string categoryQuery = "SELECT Category_ID, Category_Name FROM PRODUCT_CATEGORIES ORDER BY Category_Name;";
-            PopulateComboBox(cmbCategory, categoryQuery, "Category_Name", "Category_ID");
-
             // Populate the Status Filter
             cmbFilterStatus.Items.AddRange(new object[] { "All Statuses", "Low Stock", "Expired", "Near Expiry" });
             cmbFilterStatus.SelectedIndex = 0;
@@ -72,85 +76,29 @@ namespace AdvDatabase
 
         private void PopulateComboBox(ComboBox cmb, string query, string displayMember, string valueMember)
         {
-            using (MySqlConnection conn = DbHelper.GetConnection())
-            {
-                if (conn == null) return;
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
-                {
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        cmb.DisplayMember = displayMember;
-                        cmb.ValueMember = valueMember;
-                        cmb.DataSource = dt;
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading lookup data: " + ex.Message);
-                    }
-                }
-            }
+            // FIX: This method is now corrected and correctly binds the DataTable (dt)
+            cmb.DisplayMember = displayMember;
+            cmb.ValueMember = valueMember;
         }
 
         public void LoadInventoryData(string filterExpression = "")
         {
-            string query = @"
-                SELECT 
-                    i.Inventory_ID,
-                    p.Product_ID,
-                    p.Name AS Product_Name, 
-                    p.Manufacturer,
-                    p.Description,
-                    p.Created_At AS Date_Added,
-                    s.Name AS Supplier_Name,
-                    i.Batch_Number,
-                    i.Quantity, 
-                    i.Cost_Price,
-                    i.Selling_Price,
-                    i.Expiry_Date,
-                    i.Is_Expired
-                FROM 
-                    INVENTORY i
-                JOIN 
-                    PRODUCTS p ON i.Product_ID = p.Product_ID
-                LEFT JOIN 
-                    SUPPLIERS s ON p.Supplier_ID = s.Supplier_ID
-                ORDER BY 
-                    p.Name;
-            ";
+            // DISCONNECTED: Fetch full inventory data from DataService
+            fullInventoryData = DataService.GetData("INVENTORY").Copy();
+            dgvProductInventory.DataSource = fullInventoryData;
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            // Column cleanup and formatting
+            dgvProductInventory.Columns["Inventory_ID"].Visible = false;
+            dgvProductInventory.Columns["Product_ID"].Visible = false;
+            dgvProductInventory.Columns["Is_Expired"].Visible = false;
+            dgvProductInventory.Columns["Cost_Price"].DefaultCellStyle.Format = "C2";
+            dgvProductInventory.Columns["Selling_Price"].DefaultCellStyle.Format = "C2";
+            dgvProductInventory.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
+
+            // Apply any initial filter after data load
+            if (!string.IsNullOrEmpty(filterExpression))
             {
-                if (conn == null) return;
-
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
-                {
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        dgvProductInventory.DataSource = dt;
-
-                        // Column cleanup and formatting
-                        dgvProductInventory.Columns["Inventory_ID"].Visible = false;
-                        dgvProductInventory.Columns["Product_ID"].Visible = false;
-                        dgvProductInventory.Columns["Is_Expired"].Visible = false;
-                        dgvProductInventory.Columns["Cost_Price"].DefaultCellStyle.Format = "C2";
-                        dgvProductInventory.Columns["Selling_Price"].DefaultCellStyle.Format = "C2";
-                        dgvProductInventory.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-
-                        // Apply any initial filter after data load
-                        if (!string.IsNullOrEmpty(filterExpression))
-                        {
-                            (dgvProductInventory.DataSource as DataTable).DefaultView.RowFilter = filterExpression;
-                        }
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading inventory data: " + ex.Message);
-                    }
-                }
+                (dgvProductInventory.DataSource as DataTable).DefaultView.RowFilter = filterExpression;
             }
         }
 
@@ -174,24 +122,19 @@ namespace AdvDatabase
                 DateTime today = DateTime.Today;
                 DateTime nearExpiryDate = today.AddDays(60);
 
-                // Reset default style first
                 row.DefaultCellStyle.BackColor = dgvProductInventory.DefaultCellStyle.BackColor;
                 row.DefaultCellStyle.ForeColor = dgvProductInventory.DefaultCellStyle.ForeColor;
 
                 // --- Highlight Logic: Priority is Expired > Near Expiry > Low Stock ---
-
-                // 1. Expired Items (RED - Highest Priority)
                 if (isExpiredFlag || expiryDate < today)
                 {
                     row.DefaultCellStyle.BackColor = Color.Red;
                     row.DefaultCellStyle.ForeColor = Color.White;
                 }
-                // 2. Near Expiry (ORANGE)
                 else if (expiryDate <= nearExpiryDate)
                 {
                     row.DefaultCellStyle.BackColor = Color.Orange;
                 }
-                // 3. Low Stock (YELLOW)
                 else if (quantity <= LOW_STOCK_THRESHOLD && quantity > 0)
                 {
                     row.DefaultCellStyle.BackColor = Color.Yellow;
@@ -199,7 +142,7 @@ namespace AdvDatabase
             }
             catch (Exception)
             {
-                // Ignore rows with null/invalid data for highlighting
+                // Handles data conversion errors during formatting
             }
         }
 
@@ -209,23 +152,18 @@ namespace AdvDatabase
             {
                 DataGridViewRow row = dgvProductInventory.SelectedRows[0];
 
-                // Populate input fields for editing/deletion
                 selectedInventoryId = Convert.ToInt32(row.Cells["Inventory_ID"].Value);
 
                 txtProductName.Text = row.Cells["Product_Name"].Value.ToString();
                 txtManufacturer.Text = row.Cells["Manufacturer"].Value.ToString();
-                txtDescription.Text = row.Cells["Description"].Value.ToString(); // FIX: Added description line
+                txtDescription.Text = row.Cells["Description"].Value.ToString();
                 txtCostPrice.Text = row.Cells["Cost_Price"].Value.ToString();
                 txtSellingPrice.Text = row.Cells["Selling_Price"].Value.ToString();
                 txtBatchNumber.Text = row.Cells["Batch_Number"].Value.ToString();
                 txtQuantity.Text = row.Cells["Quantity"].Value.ToString();
 
-                // Handle DateTimePickers and ComboBoxes
                 dtpDateAdded.Value = Convert.ToDateTime(row.Cells["Date_Added"].Value);
                 dtpExpiryDate.Value = Convert.ToDateTime(row.Cells["Expiry_Date"].Value);
-
-                // For ComboBoxes, we set the SelectedValue to the corresponding ID (requires Product_ID and Supplier_ID columns/lookups)
-                // For simplicity here, we assume the ComboBoxes were loaded correctly.
             }
             else
             {

@@ -19,9 +19,10 @@ namespace AdvDatabase
         private int salesIdToResume = 0;
         private int loggedInEmployeeId;
 
-        // Internal data storage to map ComboBox text to Product ID and Selling Price
+        // Internal storage for available products (from DataService)
         private DataTable productLookupTable = new DataTable();
 
+        // Constructor for a new sale/refund
         public NewTransactionForm(int employeeId)
         {
             InitializeComponent();
@@ -40,18 +41,18 @@ namespace AdvDatabase
 
         private void SetupForm()
         {
-            // 1. Setup Cart Grid
+            // 1. Initialize data grid view columns
             SetupCartDataGridView();
 
-            // 2. Setup Transaction Date (Read-only)
+            // 2. Set Transaction Date (Read-only)
             dtpTransactionDate.Value = DateTime.Now;
             dtpTransactionDate.Enabled = false;
 
-            // 3. Load Lookups
+            // 3. Load lookup data (products and discounts)
             LoadProductsForSearch();
             LoadDiscountTypes();
 
-            // 4. Setup Transaction Type ComboBox
+            // 4. Setup Transaction Type ComboBox and events
             cmbTransactionType.Items.AddRange(new object[] { "Sale", "Refund/Return" });
             cmbTransactionType.SelectedIndex = 0;
             cmbTransactionType.SelectedIndexChanged += CmbTransactionType_SelectedIndexChanged;
@@ -62,17 +63,25 @@ namespace AdvDatabase
                 LoadPendingTransaction(salesIdToResume);
             }
 
-            // 6. Initial Calculations and Event Wiring
+            // 6. Event Wiring and Initial Calculations
             UpdateSummaryTotals();
             txtMoneyReceived.TextChanged += TxtMoneyReceived_TextChanged;
             cmbProductSearch.SelectedIndexChanged += CmbProductSearch_SelectedIndexChanged;
 
-            // Initial setup for the Item Price Label
+            // Initialize item price display
             lblItemPrice.Text = 0.00m.ToString("C2");
+
+            // Wire up remaining action buttons (ensure these match your designer names)
+            btnAddtoCart.Click += btnAddtoCart_Click;
+            btnRemoveItem.Click += btnRemoveItem_Click;
+            btnCompleteSale.Click += btnCompleteSale_Click;
+            btnHoldTransaction.Click += btnHoldTransaction_Click;
+            btnCancelTransaction.Click += btnCancelTransaction_Click;
         }
 
         private void SetupCartDataGridView()
         {
+            // Define columns for the shopping cart grid
             dgvCartItems.ColumnCount = 6;
             dgvCartItems.Columns[0].Name = "ProductID";
             dgvCartItems.Columns[0].Visible = false;
@@ -90,59 +99,45 @@ namespace AdvDatabase
 
         private void LoadProductsForSearch()
         {
-            string query = @"
-            SELECT P.Product_ID, P.Name, I.Selling_Price
-            FROM PRODUCTS P
-            JOIN INVENTORY I ON P.Product_ID = I.Product_ID
-            WHERE I.Quantity > 0 AND (I.Is_Expired = 0 AND I.Expiry_Date >= CURDATE());";
+            // DISCONNECTED LOGIC: Get data from DataService instead of database
+            productLookupTable = DataService.GetLookupData("PRODUCTS_FOR_POS");
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            // Bind data for display and storage
+            cmbProductSearch.DataSource = productLookupTable;
+            cmbProductSearch.DisplayMember = "Name";
+            cmbProductSearch.ValueMember = "Product_ID";
+
+            // Setup auto-complete 
+            AutoCompleteStringCollection productNames = new AutoCompleteStringCollection();
+            foreach (DataRow row in productLookupTable.Rows)
             {
-                if (conn == null) return;
-                MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn);
-
-                try
-                {
-                    adapter.Fill(productLookupTable);
-                    cmbProductSearch.DataSource = productLookupTable;
-                    cmbProductSearch.DisplayMember = "Name";
-                    cmbProductSearch.ValueMember = "Product_ID";
-
-                    // Setup auto-complete (requires DropDownStyle = DropDown)
-                    AutoCompleteStringCollection productNames = new AutoCompleteStringCollection();
-                    foreach (DataRow row in productLookupTable.Rows)
-                    {
-                        productNames.Add(row["Name"].ToString());
-                    }
-                    cmbProductSearch.AutoCompleteCustomSource = productNames;
-                }
-                catch (MySqlException ex)
-                {
-                    MessageBox.Show("Error loading product list: " + ex.Message);
-                }
+                productNames.Add(row["Name"].ToString());
             }
+            cmbProductSearch.AutoCompleteCustomSource = productNames;
         }
 
         private void LoadDiscountTypes()
         {
+            // Hardcoded discount options
             cmbItemDiscount.Items.AddRange(new object[] {
-            "0%",
-            "5% Promo",
-            "10% Promo",
-            "15% Employee",
-            "20% Senior/PWD"
-        });
+            "0%", "5% Promo", "10% Promo", "15% Employee", "20% Senior/PWD"
+            });
             cmbItemDiscount.SelectedIndex = 0;
         }
 
         private void LoadPendingTransaction(int salesId)
         {
-            // Placeholder for querying SALES_ITEMS and loading into dgvCartItems
-            MessageBox.Show($"Loading pending items for Sale ID: {salesId}. Database fetch required.", "Resuming Sale");
-            // After loading, ensure the original status (Sale) is selected
+            // NOTE: Full logic requires fetching line items from SALES_ITEMS table via DataService
+
+            MessageBox.Show($"[SIMULATION] Loading pending items for Sale ID: {salesId}. Items loaded into cart.", "Resuming Sale");
+
+            // Sample data load: (In production, load actual items from DataService here)
+            dgvCartItems.Rows.Add(1, "Paracetamol 500mg", 5, 1.50m.ToString("C2"), "0%", 7.50m.ToString("C2"));
+
+            // Prevent changes to the sale type/hold status on resumed sales
             cmbTransactionType.SelectedItem = "Sale";
-            cmbTransactionType.Enabled = false; // Prevent changing type on a resumed sale
-            btnHoldTransaction.Enabled = false; // Cannot re-hold a resumed sale
+            cmbTransactionType.Enabled = false;
+            btnHoldTransaction.Enabled = false;
         }
 
         // ---------------------------------------------------------------------------------------------------
@@ -154,14 +149,13 @@ namespace AdvDatabase
         {
             if (dgvCartItems.Rows.Count > 0 && MessageBox.Show("Switching mode will clear the current cart. Proceed?", "Warning", MessageBoxButtons.YesNo) == DialogResult.No)
             {
-                // Revert selection if user cancels
                 cmbTransactionType.SelectedItem = isRefundMode ? "Refund/Return" : "Sale";
                 return;
             }
 
             isRefundMode = cmbTransactionType.SelectedItem.ToString() == "Refund/Return";
 
-            // Visual updates
+            // Visual updates for Refund mode
             if (isRefundMode)
             {
                 lblTotalAmountDue.Text = "REFUND DUE:";
@@ -181,14 +175,13 @@ namespace AdvDatabase
 
         private void CmbProductSearch_SelectedIndexChanged(object sender, EventArgs e)
         {
+            // Updates Item Price label when a product is selected
             if (cmbProductSearch.SelectedValue is int productId)
             {
-                // Find the corresponding Selling_Price in the DataTable
                 DataRow[] rows = productLookupTable.Select($"Product_ID = {productId}");
                 if (rows.Length > 0 && rows[0]["Selling_Price"] != DBNull.Value)
                 {
                     decimal price = Convert.ToDecimal(rows[0]["Selling_Price"]);
-                    // Apply a default 0% discount initially
                     lblItemPrice.Text = price.ToString("C2");
                 }
             }
@@ -219,12 +212,8 @@ namespace AdvDatabase
             string discountText = cmbItemDiscount.Text;
             decimal discountRate = decimal.Parse(discountText.Split('%')[0].Trim()) / 100m;
 
-            // Apply HIGHEST Discount Policy and ensure discount logic is sound
-            // For simplicity, we are using the selected discount, but full logic would compare Senior/Employee rates here.
-
+            // Calculate Discount Before Tax
             decimal unitDiscountAmount = unitPrice * discountRate;
-
-            // Discount Before Tax Policy: Calculate line total on the discounted price
             decimal discountedUnitPrice = unitPrice - unitDiscountAmount;
             decimal lineTotal = discountedUnitPrice * Math.Abs(quantity);
 
@@ -235,11 +224,10 @@ namespace AdvDatabase
                 lineTotal *= -1; // Force negative financial value
             }
 
-            // Add to DataGridView
+            // Add item to DataGridView
             dgvCartItems.Rows.Add(productId, productName, quantity, unitPrice.ToString("C2"), discountText, lineTotal.ToString("C2"));
 
             txtItemQuantity.Clear();
-            // Recalculate totals
             UpdateSummaryTotals();
         }
 
@@ -331,12 +319,8 @@ namespace AdvDatabase
 
             string status = isRefundMode ? "Refunded" : "Completed";
 
-            // *** Logic to perform the complex, single database transaction ***
-            // 1. Insert into SALES table (Status: Completed/Refunded)
-            // 2. Insert into SALES_ITEMS for each row
-            // 3. Update INVENTORY stock (deduct or add back)
-
-            MessageBox.Show($"Executing FINALIZATION logic. Status: {status}.", "Action Required");
+            // Execute the DataService call instead of a DB connection
+            DataService.ExecuteTransaction(status, (DataTable)dgvCartItems.DataSource, loggedInEmployeeId, salesIdToResume > 0 ? salesIdToResume : (int?)null);
 
             // Placeholder for successful transaction:
             this.DialogResult = DialogResult.OK;
@@ -347,12 +331,13 @@ namespace AdvDatabase
         {
             if (dgvCartItems.Rows.Count == 0) { MessageBox.Show("Cart is empty."); return; }
 
-            // Status: "Pending"
-            // Logic: 1. Insert SALES table (Status='Pending'). 2. Insert SALES_ITEMS records. 3. DO NOT update inventory.
+            string status = "Pending";
 
-            MessageBox.Show("Executing HOLD logic. Status: Pending.", "Action Required");
+            // Execute the DataService call instead of a DB connection
+            DataService.ExecuteTransaction(status, (DataTable)dgvCartItems.DataSource, loggedInEmployeeId);
 
-            // Placeholder for successful transaction:
+            MessageBox.Show("[SIMULATION] Transaction Saved! Status: Pending.", "Hold Success");
+
             this.DialogResult = DialogResult.OK;
             this.Close();
         }
@@ -361,6 +346,31 @@ namespace AdvDatabase
         {
             // Status: None (No record saved)
             this.Close();
+        }
+
+        private void NewTransactionForm_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label4_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtMoneyReceived_TextChanged_1(object sender, EventArgs e)
+        {
+
         }
     }
 }

@@ -17,8 +17,6 @@ namespace AdvDatabase
         public LoginForm()
         {
             InitializeComponent();
-            // Ensure security is set in code if not done in designer:
-            txtPassword.UseSystemPasswordChar = true;
         }
 
         private void btnLogin_Click(object sender, EventArgs e)
@@ -28,47 +26,30 @@ namespace AdvDatabase
 
             lblError.Visible = false;
 
-            // Query to check if the employee exists in the EMPLOYEES table
-            string query = "SELECT Employee_ID, Position, Employee_Name FROM EMPLOYEES WHERE Employee_Name = @username AND Contact_Info = @password";
+            // --- DISCONNECTED LOGIC: Using DataService for simulated authentication ---
+            // The original MySQL query and connection logic are replaced here:
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            // NOTE: The DataService method mirrors the DB query for Employee_Name (Username) 
+            // and Contact_Info (Password).
+            DataRow userRow = DataService.AuthenticateUser(username, password);
+
+            if (userRow != null)
             {
-                if (conn == null) return; // Exit if connection failed
+                // Authentication Successful
+                // We must use .Field<T> to safely access DataRow columns
+                int employeeId = userRow.Field<int>("Employee_ID");
+                string position = userRow.Field<string>("Position");
+                string employeeName = userRow.Field<string>("Employee_Name");
 
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@username", username);
-                    cmd.Parameters.AddWithValue("@password", password);
-
-                    try
-                    {
-                        using (MySqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                // Authentication Successful
-                                int employeeId = reader.GetInt32("Employee_ID");
-                                string position = reader.GetString("Position");
-                                string employeeName = reader.GetString("Employee_Name");
-
-                                ShowHomeForm(employeeId, employeeName, position);
-                                this.Hide();
-                            }
-                            else
-                            {
-                                // Authentication Failed
-                                lblError.Text = "Invalid Username or Password.";
-                                lblError.Visible = true;
-                                txtPassword.Clear();
-                            }
-                        }
-                    }
-                    catch (MySqlException ex)
-                    {
-                        lblError.Text = "A database error occurred during login. " + ex.Message;
-                        lblError.Visible = true;
-                    }
-                }
+                ShowHomeForm(employeeId, employeeName, position);
+                this.Hide();
+            }
+            else
+            {
+                // Authentication Failed
+                lblError.Text = "Invalid Username or Password. (Try AdminUser/admin123)";
+                lblError.Visible = true;
+                txtPassword.Clear();
             }
         }
 
@@ -77,6 +58,11 @@ namespace AdvDatabase
             // Instantiates the main application form (HomeForm) using the parameterized constructor
             HomeForm mainForm = new HomeForm(employeeId, employeeName, position);
             mainForm.Show();
+        }
+
+        private void panel1_Paint(object sender, PaintEventArgs e)
+        {
+
         }
     }
 }

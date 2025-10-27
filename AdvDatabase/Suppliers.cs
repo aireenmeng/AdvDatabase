@@ -14,14 +14,14 @@ namespace AdvDatabase
     public partial class SuppliersUC : UserControl
     {
         private int selectedSupplierId = 0;
+        private DataTable fullSupplierData; // Stores the in-memory data
         public SuppliersUC()
         {
             InitializeComponent();
+
             // Wire up necessary events
             dgvSuppliersList.SelectionChanged += DgvSuppliersList_SelectionChanged;
             btnSearchSupplier.Click += btnSearchSupplier_Click;
-
-            // Wire up CRUD buttons
             btnAddSupplier.Click += btnAddSupplier_Click;
             btnUpdateSupplier.Click += btnUpdateSupplier_Click;
             btnDeleteSupplier.Click += btnDeleteSupplier_Click;
@@ -39,50 +39,30 @@ namespace AdvDatabase
 
         private void LoadSuppliersData(string searchTerm = "")
         {
-            string query = @"
-                SELECT 
-                    Supplier_ID, 
-                    Name, 
-                    Contact_Info
-                FROM 
-                    SUPPLIERS
-                ";
+            // CRITICAL FIX: Initialize the persistent data ONLY IF it hasn't been loaded yet.
+            if (fullSupplierData == null)
+            {
+                fullSupplierData = DataService.GetData("SUPPLIERS").Copy();
+            }
 
-            // Add WHERE clause if a search term is provided
+            DataTable dt = fullSupplierData; // Use the persistent class field for filtering
+
+            // Apply search filter in-memory using DataView.RowFilter
             if (!string.IsNullOrEmpty(searchTerm))
             {
-                // Search by Supplier Name or Contact Info
-                query += " WHERE Name LIKE @searchTerm OR Contact_Info LIKE @searchTerm";
+                string filter = $"Name LIKE '%{searchTerm}%' OR Contact_Info LIKE '%{searchTerm}%'";
+                dt.DefaultView.RowFilter = filter;
             }
-
-            query += " ORDER BY Name;";
-
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            else
             {
-                if (conn == null) return;
-
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
-                {
-                    if (!string.IsNullOrEmpty(searchTerm))
-                    {
-                        // Parameterized query for safe searching
-                        adapter.SelectCommand.Parameters.AddWithValue("@searchTerm", "%" + searchTerm + "%");
-                    }
-
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        dgvSuppliersList.DataSource = dt;
-                        dgvSuppliersList.Columns["Supplier_ID"].Visible = false;
-                        dgvSuppliersList.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading supplier data: " + ex.Message, "Database Error");
-                    }
-                }
+                // FIX: This section is safe now because dt (fullSupplierData) is guaranteed not to be null.
+                dt.DefaultView.RowFilter = string.Empty;
             }
+
+            // Bind the existing filtered DataTable (dt.DefaultView)
+            dgvSuppliersList.DataSource = dt.DefaultView;
+            dgvSuppliersList.Columns["Supplier_ID"].Visible = false;
+            dgvSuppliersList.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
         }
 
         // Handles filling the input fields when a row is selected
@@ -140,124 +120,72 @@ namespace AdvDatabase
 
         private void btnAddSupplier_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(txtSupplierName.Text))
-            {
-                MessageBox.Show("Supplier Name is required.", "Validation Error");
-                return;
-            }
 
-            string query = "INSERT INTO SUPPLIERS (Name, Contact_Info) VALUES (@Name, @ContactInfo);";
+            // --- DISCONNECTED MOCK LOGIC ---
+            // Simulates adding a new row to the in-memory DataTable
+            DataTable dt = dgvSuppliersList.DataSource as DataTable;
+            DataRow newRow = dt.NewRow();
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
-            {
-                if (conn == null) return;
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@Name", txtSupplierName.Text.Trim());
-                    cmd.Parameters.AddWithValue("@ContactInfo", GetCombinedContactInfo());
+            // Generate mock ID
+            int newId = dt.AsEnumerable().Max(row => row.Field<int>("Supplier_ID")) + 1;
 
-                    try
-                    {
-                        cmd.ExecuteNonQuery();
-                        MessageBox.Show("Supplier added successfully!", "Success");
-                        btnClearSupplierFields_Click(null, null);
-                        LoadSuppliersData();
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error adding supplier: " + ex.Message, "Database Error");
-                    }
-                }
-            }
+            newRow["Supplier_ID"] = newId;
+            newRow["Name"] = txtSupplierName.Text.Trim();
+            newRow["Contact_Info"] = GetCombinedContactInfo();
+
+            dt.Rows.Add(newRow);
+            dt.AcceptChanges(); // Commit the change to the in-memory data
+
+            MessageBox.Show("Supplier added successfully (Simulated)!", "Success");
+            btnClearSupplierFields_Click(null, null);
+            LoadSuppliersData();
         }
 
         private void btnUpdateSupplier_Click(object sender, EventArgs e)
         {
-            if (selectedSupplierId == 0)
-            {
-                MessageBox.Show("Please select a supplier to update.", "Error");
-                return;
-            }
-            if (string.IsNullOrWhiteSpace(txtSupplierName.Text))
-            {
-                MessageBox.Show("Supplier Name is required.", "Validation Error");
-                return;
-            }
+            if (selectedSupplierId == 0) { MessageBox.Show("Please select a supplier to update.", "Error"); return; }
 
-            string query = "UPDATE SUPPLIERS SET Name = @Name, Contact_Info = @ContactInfo WHERE Supplier_ID = @ID;";
+            // --- DISCONNECTED MOCK LOGIC ---
+            DataTable dt = dgvSuppliersList.DataSource as DataTable;
+            DataRow rowToUpdate = dt.AsEnumerable().FirstOrDefault(r => r.Field<int>("Supplier_ID") == selectedSupplierId);
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            if (rowToUpdate != null)
             {
-                if (conn == null) return;
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@Name", txtSupplierName.Text.Trim());
-                    cmd.Parameters.AddWithValue("@ContactInfo", GetCombinedContactInfo());
-                    cmd.Parameters.AddWithValue("@ID", selectedSupplierId);
+                rowToUpdate["Name"] = txtSupplierName.Text.Trim();
+                rowToUpdate["Contact_Info"] = GetCombinedContactInfo();
 
-                    try
-                    {
-                        cmd.ExecuteNonQuery();
-                        MessageBox.Show("Supplier updated successfully!", "Success");
-                        btnClearSupplierFields_Click(null, null);
-                        LoadSuppliersData();
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error updating supplier: " + ex.Message, "Database Error");
-                    }
-                }
+                dt.AcceptChanges();
+                MessageBox.Show("Supplier updated successfully (Simulated)!", "Success");
+                btnClearSupplierFields_Click(null, null);
+                LoadSuppliersData();
             }
         }
 
         private void btnDeleteSupplier_Click(object sender, EventArgs e)
         {
-            if (selectedSupplierId == 0)
-            {
-                MessageBox.Show("Please select a supplier to delete.", "Error");
-                return;
-            }
-            if (MessageBox.Show("Are you sure you want to delete this supplier? This may affect existing products/orders.",
-                                "Confirm Delete", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
+            if (selectedSupplierId == 0) { MessageBox.Show("Please select a supplier to delete.", "Error"); return; }
+            if (MessageBox.Show("Are you sure you want to delete this supplier? (Simulated)", "Confirm Delete",
+                                MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
                 return;
 
-            string query = "DELETE FROM SUPPLIERS WHERE Supplier_ID = @ID;";
+            // --- DISCONNECTED MOCK LOGIC ---
+            DataTable dt = dgvSuppliersList.DataSource as DataTable;
+            DataRow rowToDelete = dt.AsEnumerable().FirstOrDefault(r => r.Field<int>("Supplier_ID") == selectedSupplierId);
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            if (rowToDelete != null)
             {
-                if (conn == null) return;
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@ID", selectedSupplierId);
+                rowToDelete.Delete();
+                dt.AcceptChanges();
 
-                    try
-                    {
-                        int rowsAffected = cmd.ExecuteNonQuery();
-                        if (rowsAffected > 0)
-                        {
-                            MessageBox.Show("Supplier deleted successfully!", "Success");
-                        }
-                        else
-                        {
-                            MessageBox.Show("Supplier not found or delete failed.", "Error");
-                        }
-                        btnClearSupplierFields_Click(null, null);
-                        LoadSuppliersData();
-                    }
-                    catch (MySqlException ex)
-                    {
-                        // Catch FK violation (Error number 1451 is common for MySQL FK constraint failure)
-                        if (ex.Number == 1451)
-                        {
-                            MessageBox.Show("Cannot delete supplier: Products or Purchase Orders currently depend on this record.", "Integrity Error");
-                        }
-                        else
-                        {
-                            MessageBox.Show("Error deleting supplier: " + ex.Message, "Database Error");
-                        }
-                    }
-                }
+                MessageBox.Show("Supplier deleted successfully (Simulated)!", "Success");
+                btnClearSupplierFields_Click(null, null);
+                LoadSuppliersData();
             }
+        }
+
+        private void SuppliersUC_Load(object sender, EventArgs e)
+        {
+            LoadSuppliersData();
         }
     }
 }

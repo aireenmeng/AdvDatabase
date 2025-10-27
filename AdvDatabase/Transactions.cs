@@ -13,13 +13,24 @@ namespace AdvDatabase
 {
     public partial class TransactionsUC : UserControl
     {
-        // A property to store the logged-in employee ID for auditing/logging
-        private int loggedInEmployeeId = 1; // Placeholder: In a final system, this should be passed from HomeForm
+        private int loggedInEmployeeId;
         private string initialFilter = "";
+        private DataTable fullSalesData;
 
+        // NEW CONSTRUCTOR: Receives Employee ID from HomeForm for auditing
+        public TransactionsUC(int employeeId)
+        {
+            InitializeComponent();
+            this.loggedInEmployeeId = employeeId;
+            // Wire up the search button here (or in Load, but here is cleaner for events)
+        }
+
+        // Default constructor is also needed for Visual Studio Designer
         public TransactionsUC()
         {
             InitializeComponent();
+            // Default ID 1 for design view, will be overwritten by parameterized constructor
+            this.loggedInEmployeeId = 1;
         }
 
         // Public method called by HomeForm.NavigateAndFilter (for 'Today's Sale' click)
@@ -49,6 +60,7 @@ namespace AdvDatabase
             // Wire up the filter events after loading data
             cmbStatusFilter.SelectedIndexChanged += CmbFilters_SelectedIndexChanged;
             cmbTimeFilter.SelectedIndexChanged += CmbFilters_SelectedIndexChanged;
+            btnSearchTransaction.Click += btnSearchTransaction_Click; // Assuming search button is wired up
         }
 
         // ---------------------------------------------------------------------------------------------------
@@ -66,42 +78,15 @@ namespace AdvDatabase
 
         private void LoadTransactionHistory()
         {
-            string query = @"
-            SELECT 
-                s.Sales_ID, 
-                s.Sales_Date, 
-                s.Total_Amount, 
-                s.Payment_Method,
-                s.Status,
-                e.Employee_Name AS Cashier_Name
-            FROM 
-                SALES s
-            LEFT JOIN 
-                EMPLOYEES e ON s.Logged_By = e.Employee_ID
-            ORDER BY 
-                s.Sales_Date DESC;
-        ";
+            // DISCONNECTED LOGIC: Replaces complex MySQL code with DataService call
+            fullSalesData = DataService.GetData("SALES");
+            dgvTransactionHistory.DataSource = fullSalesData;
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
-            {
-                if (conn == null) return;
+            // NOTE: We don't need a complex query string here; the logic is encapsulated in DataService/DummyData
 
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
-                {
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        dgvTransactionHistory.DataSource = dt;
-                        dgvTransactionHistory.Columns["Total_Amount"].DefaultCellStyle.Format = "C2";
-                        dgvTransactionHistory.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading transaction history: " + ex.Message);
-                    }
-                }
-            }
+            // Formatting and resizing remain the same
+            dgvTransactionHistory.Columns["Total_Amount"].DefaultCellStyle.Format = "C2";
+            dgvTransactionHistory.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
         }
 
         // ---------------------------------------------------------------------------------------------------
@@ -120,9 +105,11 @@ namespace AdvDatabase
 
         private void ApplyFilters()
         {
+            // The filtering remains an in-memory operation using DataView.RowFilter
             DataTable dt = dgvTransactionHistory.DataSource as DataTable;
             if (dt == null) return;
 
+            // ... (RowFilter logic remains the same as previously reviewed) ...
             string finalFilter = "";
 
             // --- 1. Status Filter ---

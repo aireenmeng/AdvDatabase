@@ -12,6 +12,7 @@ namespace AdvDatabase
 {
     public partial class HomeForm : Form
     {
+        // Stores the user's details received from the LoginForm
         private int loggedInEmployeeId;
         private string loggedInEmployeeName;
         private string loggedInUserPosition;
@@ -19,8 +20,8 @@ namespace AdvDatabase
         public HomeForm(int employeeId, string employeeName, string position)
         {
             InitializeComponent();
-            // Store the details
 
+            // Store the details
             loggedInEmployeeId = employeeId;
             loggedInEmployeeName = employeeName;
             loggedInUserPosition = position;
@@ -75,7 +76,8 @@ namespace AdvDatabase
 
         private void btnTransactions_Click(object sender, EventArgs e)
         {
-            TransactionsUC transactions = new TransactionsUC();
+            // Note: We should pass the Employee ID to the TransactionsUC for auditing
+            TransactionsUC transactions = new TransactionsUC(loggedInEmployeeId);
             LoadUserControl(transactions);
         }
 
@@ -116,30 +118,22 @@ namespace AdvDatabase
                 this.Close();
             }
         }
-    
 
-    // -------------------------------------------------------------------------
-    // DASHBOARD NAVIGATION AND FILTERING LOGIC (Public Method)
-    // -------------------------------------------------------------------------
-    
-    /// <summary>
-    /// Handles navigation and filtering when a Dashboard metric is clicked.
-    /// </summary>
-    /// <param name="filterType">The name of the label clicked (e.g., lblExpiredItemsCount).</param>
-    public void NavigateAndFilter(string filterType)
+
+        // -------------------------------------------------------------------------
+        // DASHBOARD NAVIGATION AND FILTERING LOGIC (Public Method)
+        // -------------------------------------------------------------------------
+
+        /// <summary>
+        /// Handles navigation and filtering when a Dashboard metric is clicked.
+        /// </summary>
+        /// <param name="filterType">The name of the label clicked (e.g., lblExpiredItemsCount).</param>
+        public void NavigateAndFilter(string filterType)
         {
-            // 1. Determine destination and filter mode
-
             if (filterType.Contains("Sale"))
             {
                 // Go to Transactions
                 btnTransactions.PerformClick();
-
-                // NOTE: The TransactionsUC constructor/Load event will need to check 
-                // if a filter is passed, e.g., filter by today's date.
-
-                // Since we can't directly call a method on the *newly loaded* UC here,
-                // the TransactionsUC needs a public method to accept the filter AFTER loading.
 
                 // Example of how to call the filter method on the currently loaded UC:
                 if (panelMainContent.Controls.Count > 0 && panelMainContent.Controls[0] is TransactionsUC transactionsUc)
@@ -147,9 +141,9 @@ namespace AdvDatabase
                     transactionsUc.ApplyDashboardFilter("TodaySale");
                 }
             }
-            else // Total Products, Expired Items, Low Stock Items (all go to Inventory)
+            else // Inventory related metrics
             {
-                // Check for permission before loading Inventory
+                // Re-check permission before proceeding to Inventory (safety check)
                 if (loggedInUserPosition.Equals("Cashier", StringComparison.OrdinalIgnoreCase))
                 {
                     MessageBox.Show("Access Denied. Only Managers and Admins can view Inventory.", "Permission Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -159,7 +153,6 @@ namespace AdvDatabase
                 // Go to Inventory
                 btnInventory.PerformClick();
 
-                // Example of how to call the filter method on the currently loaded UC:
                 if (panelMainContent.Controls.Count > 0 && panelMainContent.Controls[0] is InventoryUC inventoryUc)
                 {
                     if (filterType.Contains("Expired"))
@@ -170,12 +163,16 @@ namespace AdvDatabase
                     {
                         inventoryUc.ApplyDashboardFilter("LowStock");
                     }
-                    // 'Total Products' needs no special filter, just the default view.
                 }
             }
         }
 
         private void panelSidebar_Paint(object sender, PaintEventArgs e)
+        {
+
+        }
+
+        private void HomeForm_Load(object sender, EventArgs e)
         {
 
         }

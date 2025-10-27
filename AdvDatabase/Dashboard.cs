@@ -32,6 +32,9 @@ namespace AdvDatabase
 
             // Wire up the metric labels to handle the click navigation
             WireUpMetricLabels();
+
+            // Wire up search button
+            btnDashboardSearch.Click += btnDashboardSearch_Click;
         }
 
         private void WireUpMetricLabels()
@@ -49,143 +52,79 @@ namespace AdvDatabase
 
         private void LoadMetrics()
         {
-            // Fetches all four metrics in one efficient database trip
-            string query = $@"
-            SELECT 
-                (SELECT IFNULL(SUM(Total_Amount), 0) FROM SALES WHERE DATE(Sales_Date) = CURDATE() AND Status = 'Completed') AS TodaySale,
-                (SELECT COUNT(DISTINCT Product_ID) FROM PRODUCTS) AS TotalProducts,
-                (SELECT COUNT(Inventory_ID) FROM INVENTORY WHERE Is_Expired = 1 OR Expiry_Date < CURDATE()) AS ExpiredItems,
-                (SELECT COUNT(Inventory_ID) FROM INVENTORY WHERE Quantity <= {LOW_STOCK_THRESHOLD} AND Quantity > 0 AND (Is_Expired = 0 OR Expiry_Date >= CURDATE())) AS LowStock;
-        ";
+            // DISCONNECTED LOGIC: Fetches calculated metrics from DataService
+            DataTable metrics = DataService.GetDashboardMetrics();
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            if (metrics.Rows.Count > 0)
             {
-                if (conn == null) return;
-
-                using (MySqlCommand cmd = new MySqlCommand(query, conn))
-                {
-                    try
-                    {
-                        using (MySqlDataReader reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                // Today's Sale
-                                lblTodaySaleValue.Text = reader.GetDecimal("TodaySale").ToString("C2");
-
-                                // Total Products
-                                lblTotalProductsCount.Text = reader["TotalProducts"].ToString();
-
-                                // Expired Items
-                                lblExpiredItemsCount.Text = reader["ExpiredItems"].ToString();
-
-                                // Low Stock Items
-                                lblLowStockCount.Text = reader["LowStock"].ToString();
-                            }
-                        }
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading dashboard metrics: " + ex.Message);
-                    }
-                }
+                DataRow reader = metrics.Rows[0];
+                // Today's Sale
+                lblTodaySaleValue.Text = reader.Field<decimal>("TodaySale").ToString("C2");
+                // Total Products
+                lblTotalProductsCount.Text = reader.Field<int>("TotalProducts").ToString();
+                // Expired Items
+                lblExpiredItemsCount.Text = reader.Field<int>("ExpiredItems").ToString();
+                // Low Stock Items
+                lblLowStockCount.Text = reader.Field<int>("LowStock").ToString();
             }
         }
 
         private void LoadRecentTransactions()
         {
-            string query = @"
-            SELECT 
-                s.Sales_ID, 
-                s.Sales_Date, 
-                s.Total_Amount, 
-                e.Employee_Name AS Cashier
-            FROM 
-                SALES s
-            LEFT JOIN 
-                EMPLOYEES e ON s.Logged_By = e.Employee_ID
-            WHERE 
-                s.Status = 'Completed' 
-            ORDER BY 
-                s.Sales_Date DESC 
-            LIMIT 10;
-        ";
+            // DISCONNECTED LOGIC: Use DataService to fetch all sales
+            DataTable sales = DataService.GetData("SALES");
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
+            // In-memory filtering/sorting to simulate the SQL query's results
+            var recentSales = sales.AsEnumerable()
+                .Where(row => row.Field<string>("Status") == "Completed")
+                .OrderByDescending(row => row.Field<DateTime>("Sales_Date"))
+                .Take(10);
+
+            if (recentSales.Any())
             {
-                if (conn == null) return;
-
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
-                {
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        dgvRecentTransactions.DataSource = dt;
-                        dgvRecentTransactions.Columns["Total_Amount"].DefaultCellStyle.Format = "C2";
-                        dgvRecentTransactions.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading recent transactions: " + ex.Message);
-                    }
-                }
+                dgvRecentTransactions.DataSource = recentSales.CopyToDataTable();
             }
+            else
+            {
+                dgvRecentTransactions.DataSource = null;
+            }
+
+            dgvRecentTransactions.Columns["Total_Amount"].DefaultCellStyle.Format = "C2";
+            dgvRecentTransactions.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
         }
 
         private void LoadProactiveAlerts()
         {
-            // Combines Near Expiry, Low Stock, and Out of Stock for the alert list
-            string query = $@"
-            SELECT 
-                p.Name AS Product_Name, 
-                i.Quantity, 
-                i.Expiry_Date,
-                CASE 
-                    WHEN i.Quantity = 0 THEN 'OUT OF STOCK'
-                    WHEN i.Expiry_Date < CURDATE() THEN 'EXPIRED'
-                    WHEN i.Expiry_Date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) THEN 'NEAR EXPIRY'
-                    WHEN i.Quantity <= {LOW_STOCK_THRESHOLD} THEN 'LOW STOCK'
-                    ELSE 'OK' 
-                END AS AlertType
-            FROM 
-                INVENTORY i
-            JOIN 
-                PRODUCTS p ON i.Product_ID = p.Product_ID
-            WHERE 
-                i.Quantity = 0 OR 
-                i.Expiry_Date < CURDATE() OR 
-                i.Expiry_Date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY) OR
-                i.Quantity <= {LOW_STOCK_THRESHOLD}
-            ORDER BY 
-                CASE AlertType 
-                    WHEN 'OUT OF STOCK' THEN 1 
-                    WHEN 'EXPIRED' THEN 2
-                    WHEN 'NEAR EXPIRY' THEN 3
-                    WHEN 'LOW STOCK' THEN 4
-                    ELSE 5 END,
-                i.Expiry_Date ASC;
-        ";
+            // DISCONNECTED LOGIC: Use DataService to fetch inventory data
+            DataTable inventory = DataService.GetData("INVENTORY");
+            DateTime today = DateTime.Today;
+            DateTime nearExpiryDate = today.AddDays(60);
 
-            using (MySqlConnection conn = DbHelper.GetConnection())
-            {
-                if (conn == null) return;
-
-                using (MySqlDataAdapter adapter = new MySqlDataAdapter(query, conn))
+            // In-memory LINQ query to simulate the complex SQL alert logic
+            var alerts = inventory.AsEnumerable()
+                .Where(row =>
+                    row.Field<int>("Quantity") == 0 ||
+                    row.Field<DateTime>("Expiry_Date").Date < today.Date ||
+                    row.Field<DateTime>("Expiry_Date").Date <= nearExpiryDate.Date ||
+                    (row.Field<int>("Quantity") <= LOW_STOCK_THRESHOLD && row.Field<int>("Quantity") > 0)
+                )
+                // Project results with calculated AlertType
+                .Select(row => new
                 {
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        adapter.Fill(dt);
-                        dgvProactiveAlerts.DataSource = dt;
-                        dgvProactiveAlerts.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
-                    }
-                    catch (MySqlException ex)
-                    {
-                        MessageBox.Show("Error loading proactive alerts: " + ex.Message);
-                    }
-                }
-            }
+                    Product_Name = row.Field<string>("Product_Name"),
+                    Quantity = row.Field<int>("Quantity"),
+                    Expiry_Date = row.Field<DateTime>("Expiry_Date"),
+                    AlertType = row.Field<int>("Quantity") == 0 ? "OUT OF STOCK" :
+                                row.Field<DateTime>("Expiry_Date").Date < today.Date ? "EXPIRED" :
+                                row.Field<DateTime>("Expiry_Date").Date <= nearExpiryDate.Date ? "NEAR EXPIRY" :
+                                row.Field<int>("Quantity") <= LOW_STOCK_THRESHOLD ? "LOW STOCK" : "OK"
+                })
+                // Order by alert priority
+                .OrderBy(a => a.AlertType.Contains("OUT") ? 1 : a.AlertType.Contains("EXPIR") ? 2 : a.AlertType.Contains("NEAR") ? 3 : a.AlertType.Contains("LOW") ? 4 : 5)
+                .ToList();
+
+            dgvProactiveAlerts.DataSource = alerts;
+            dgvProactiveAlerts.AutoResizeColumns(DataGridViewAutoSizeColumnsMode.AllCells);
         }
 
         // ---------------------------------------------------------------------------------------------------
@@ -196,12 +135,9 @@ namespace AdvDatabase
         private void MetricLabel_Click(object sender, EventArgs e)
         {
             Label clickedLabel = sender as Label;
-
-            // Find the parent HomeForm to use its public navigation method
             HomeForm parentForm = this.ParentForm as HomeForm;
             if (parentForm != null)
             {
-                // Pass the control's variable name to the HomeForm to identify the filter
                 parentForm.NavigateAndFilter(clickedLabel.Name);
             }
         }

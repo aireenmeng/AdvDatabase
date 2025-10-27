@@ -45,8 +45,8 @@
             // panelSidebar
             // 
             this.panelSidebar.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.panelSidebar.Controls.Add(this.btnSuppliers);
             this.panelSidebar.Controls.Add(this.btnLogout);
+            this.panelSidebar.Controls.Add(this.btnSuppliers);
             this.panelSidebar.Controls.Add(this.btnDashboard);
             this.panelSidebar.Controls.Add(this.btnTransactions);
             this.panelSidebar.Controls.Add(this.btnInventory);
@@ -66,7 +66,7 @@
             this.btnSuppliers.BackColor = System.Drawing.SystemColors.HotTrack;
             this.btnSuppliers.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnSuppliers.ForeColor = System.Drawing.Color.White;
-            this.btnSuppliers.Location = new System.Drawing.Point(23, 342);
+            this.btnSuppliers.Location = new System.Drawing.Point(23, 270);
             this.btnSuppliers.Margin = new System.Windows.Forms.Padding(4);
             this.btnSuppliers.Name = "btnSuppliers";
             this.btnSuppliers.Size = new System.Drawing.Size(185, 46);
@@ -80,10 +80,10 @@
             this.btnLogout.BackColor = System.Drawing.Color.Red;
             this.btnLogout.Font = new System.Drawing.Font("Microsoft New Tai Lue", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnLogout.ForeColor = System.Drawing.Color.Transparent;
-            this.btnLogout.Location = new System.Drawing.Point(33, 466);
+            this.btnLogout.Location = new System.Drawing.Point(23, 582);
             this.btnLogout.Margin = new System.Windows.Forms.Padding(4);
             this.btnLogout.Name = "btnLogout";
-            this.btnLogout.Size = new System.Drawing.Size(152, 54);
+            this.btnLogout.Size = new System.Drawing.Size(185, 46);
             this.btnLogout.TabIndex = 1;
             this.btnLogout.Text = "LOG OUT";
             this.btnLogout.UseVisualStyleBackColor = false;
@@ -94,7 +94,7 @@
             this.btnDashboard.BackColor = System.Drawing.SystemColors.HotTrack;
             this.btnDashboard.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnDashboard.ForeColor = System.Drawing.Color.White;
-            this.btnDashboard.Location = new System.Drawing.Point(23, 166);
+            this.btnDashboard.Location = new System.Drawing.Point(23, 108);
             this.btnDashboard.Margin = new System.Windows.Forms.Padding(4);
             this.btnDashboard.Name = "btnDashboard";
             this.btnDashboard.Size = new System.Drawing.Size(185, 46);
@@ -108,7 +108,7 @@
             this.btnTransactions.BackColor = System.Drawing.SystemColors.HotTrack;
             this.btnTransactions.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnTransactions.ForeColor = System.Drawing.Color.White;
-            this.btnTransactions.Location = new System.Drawing.Point(23, 225);
+            this.btnTransactions.Location = new System.Drawing.Point(23, 162);
             this.btnTransactions.Margin = new System.Windows.Forms.Padding(4);
             this.btnTransactions.Name = "btnTransactions";
             this.btnTransactions.Size = new System.Drawing.Size(185, 46);
@@ -122,7 +122,7 @@
             this.btnInventory.BackColor = System.Drawing.SystemColors.HotTrack;
             this.btnInventory.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnInventory.ForeColor = System.Drawing.Color.White;
-            this.btnInventory.Location = new System.Drawing.Point(23, 278);
+            this.btnInventory.Location = new System.Drawing.Point(23, 216);
             this.btnInventory.Margin = new System.Windows.Forms.Padding(4);
             this.btnInventory.Name = "btnInventory";
             this.btnInventory.Size = new System.Drawing.Size(185, 46);
@@ -187,6 +187,7 @@
             this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "HomeForm";
             this.Text = "PharTech Inventory Management System";
+            this.Load += new System.EventHandler(this.HomeForm_Load);
             this.panelSidebar.ResumeLayout(false);
             this.panelSidebar.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();

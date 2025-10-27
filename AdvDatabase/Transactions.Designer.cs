@@ -135,10 +135,10 @@
             "Voided",
             "Pending",
             "Return/Refund"});
-            this.cmbStatusFilter.Location = new System.Drawing.Point(686, 87);
+            this.cmbStatusFilter.Location = new System.Drawing.Point(682, 87);
             this.cmbStatusFilter.Margin = new System.Windows.Forms.Padding(4);
             this.cmbStatusFilter.Name = "cmbStatusFilter";
-            this.cmbStatusFilter.Size = new System.Drawing.Size(144, 33);
+            this.cmbStatusFilter.Size = new System.Drawing.Size(148, 33);
             this.cmbStatusFilter.TabIndex = 30;
             this.cmbStatusFilter.Text = "Status Filter";
             // 
@@ -147,10 +147,10 @@
             this.btnVoidTransaction.BackColor = System.Drawing.SystemColors.ControlText;
             this.btnVoidTransaction.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnVoidTransaction.ForeColor = System.Drawing.Color.Transparent;
-            this.btnVoidTransaction.Location = new System.Drawing.Point(443, 87);
+            this.btnVoidTransaction.Location = new System.Drawing.Point(422, 87);
             this.btnVoidTransaction.Margin = new System.Windows.Forms.Padding(4);
             this.btnVoidTransaction.Name = "btnVoidTransaction";
-            this.btnVoidTransaction.Size = new System.Drawing.Size(98, 42);
+            this.btnVoidTransaction.Size = new System.Drawing.Size(128, 42);
             this.btnVoidTransaction.TabIndex = 32;
             this.btnVoidTransaction.Text = "Void";
             this.btnVoidTransaction.UseVisualStyleBackColor = false;
@@ -161,12 +161,12 @@
             this.btnResumeTransaction.BackColor = System.Drawing.SystemColors.HotTrack;
             this.btnResumeTransaction.Font = new System.Drawing.Font("Microsoft New Tai Lue", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnResumeTransaction.ForeColor = System.Drawing.Color.Transparent;
-            this.btnResumeTransaction.Location = new System.Drawing.Point(227, 87);
+            this.btnResumeTransaction.Location = new System.Drawing.Point(215, 87);
             this.btnResumeTransaction.Margin = new System.Windows.Forms.Padding(4);
             this.btnResumeTransaction.Name = "btnResumeTransaction";
-            this.btnResumeTransaction.Size = new System.Drawing.Size(188, 42);
+            this.btnResumeTransaction.Size = new System.Drawing.Size(199, 42);
             this.btnResumeTransaction.TabIndex = 33;
-            this.btnResumeTransaction.Text = "resume transaction";
+            this.btnResumeTransaction.Text = "Resume transaction";
             this.btnResumeTransaction.UseVisualStyleBackColor = false;
             this.btnResumeTransaction.Click += new System.EventHandler(this.btnResumeTransaction_Click);
             // 

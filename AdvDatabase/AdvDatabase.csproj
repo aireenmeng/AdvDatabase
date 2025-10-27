@@ -96,7 +96,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DbHelper.cs" />
+    <Compile Include="DataService.cs" />
+    <Compile Include="DummyData.cs" />
     <Compile Include="Login.cs">
       <SubType>Form</SubType>
     </Compile>
